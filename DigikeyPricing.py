@@ -5,13 +5,15 @@ import os
 
 load_dotenv()
 
-client_id = os.getenv("CLIENTID")
-client_secret = os.getenv("CLIENTSECRET")
+client_id = os.getenv("PRODUCTION_CLIENTID")
+client_secret = os.getenv("PRODUCTION_CLIENTSECRET")
+
+
 
 access_token = None
 
 def get_access_token():
-    url = "https://sandbox-api.digikey.com/v1/oauth2/token"
+    url = "https://api.digikey.com/v1/oauth2/token"
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
 
     data = {"client_id": client_id, "client_secret": client_secret, "grant_type": "client_credentials"}
@@ -26,12 +28,11 @@ def get_access_token():
 
 
 def get_product_pricing(stock_code):
+    print(stock_code)
     print(client_id)
     print(access_token)
-    url = "https://sandbox-api.digikey.com/products/v4/search/" + stock_code + "/productdetails"
-    headers = {'X-DIGIKEY-Client-Id': client_id, 'Authorization': "Bearer " + access_token, "X-DIGIKEY-Locale-Site": "US", "X-DIGIKEY-Locale-Language": "en", "X-DIGIKEY-Locale-Currency" : "USD"}
-    
-    # params = {"productNumber": stock_code, "X-DIGIKEY-Client-Id": client_id}
+    url = "https://api.digikey.com/products/v4/search/" + stock_code + "/productdetails"
+    headers = {"X-DIGIKEY-Client-Id": client_id, "Authorization": "Bearer " + access_token}
 
     pp_result = requests.get(url, headers=headers)
     pp_json = pp_result.json()
