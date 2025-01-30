@@ -1,3 +1,12 @@
+# Name: DigikeyPricing.py
+# Author: too small to credit
+# Description: Iterates through a specific CSV file to generate a Bill of Materials (BOM) for a requested quantity
+# Usage: Use the command terminal to run the folliowing command:
+#   # DigikeyPricing.py "Bill Of Materials PowerPortMax-v5.csv"  50
+
+#  Args[1] = CSV file
+#  Args[2] = Quantity
+
 import csv
 import sys
 import requests
@@ -16,7 +25,7 @@ client_secret = os.getenv("PRODUCTION_CLIENTSECRET")
 access_token = None
 requested_quantity = None
 csvdict = []
-
+output_filename = "BOM Results.csv"
 
 
 def get_access_token(client_id, client_secret):
@@ -87,7 +96,7 @@ def add_csv_entry(stock_code, quantity, break_quantity, unit_price, total_price)
     csvdict.append(csventry)
 
 def create_output_csv(headers, csvdict):
-    with open("BOM Results.csv", "w", newline="") as csvfile:
+    with open(output_filename, "w", newline="") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=headers)
         writer.writeheader()
         writer.writerows(csvdict)
@@ -102,14 +111,13 @@ def init():
         bomreader = csv.reader(csvfile)
         next(bomreader, None) # Skips header
 
+        print("Starting loop")
         for row in bomreader:
 
             stock_code = row[4]
-            print(stock_code)
             product_details = get_product_pricing(stock_code)
-            print(product_details)
             
-
+            # Sanity Checks
             if product_details == None:
                 add_csv_entry(stock_code, "", "", "", "")
                 print(f"No product details found for: {stock_code}")
@@ -119,16 +127,18 @@ def init():
                 print(f"No product details found for: {stock_code}")
                 continue 
             
-            print(product_details)
+
             lowest_price_details = get_lowest_product_price(product_details, requested_quantity)
+
             unit_price = lowest_price_details["UnitPrice"]
             total_price = float(unit_price) * float(requested_quantity)
             
-            print(unit_price)
+
 
             add_csv_entry(stock_code, requested_quantity, lowest_price_details['BreakQuantity'], unit_price, total_price)
         
         create_output_csv(["Stock Code", "Requested Quantity", "Batch Size", "Unit Price", "Total Price"], csvdict)
+        print(f"Finished. See CSV file {output_filename} in local directory")
 
 
 access_token = get_access_token(client_id, client_secret)
