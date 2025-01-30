@@ -1,4 +1,5 @@
 import csv
+import sys
 import requests
 from dotenv import load_dotenv
 import os
@@ -12,12 +13,15 @@ client_secret = os.getenv("PRODUCTION_CLIENTSECRET")
 # client_id = os.getenv("CLIENTID")
 # client_secret = os.getenv("CLIENTSECRET")
 
-
 access_token = None
+requested_quantity = None
+csvdict = []
+
+
 
 def get_access_token(client_id, client_secret):
     url = "https://api.digikey.com/v1/oauth2/token"
-    headers = {"Content-Type": "application/x-www-form-urlencoded", "charset": "utf-8", "Accept": "application/json"}
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
     data = {"client_id": client_id, "client_secret": client_secret, "grant_type": "client_credentials"}
 
@@ -30,15 +34,10 @@ def get_access_token(client_id, client_secret):
         print(f"Error retrieving access token \n Status Code: {response.status_code} Response Text:{response.text}")
         return None
 
-
-# def get_product_price(product_data):
     
 
 def get_product_pricing(stock_code):
-    # print(stock_code)
-    # print(client_id)
-    # print(access_token)
-    url = "https://api.digikey.com/products/v4/search/" + stock_code + "/pricing"
+    url = "https://api.digikey.com/products/v4/search/" + stock_code + "/pricing?limit=1"
     headers = {"X-DIGIKEY-Client-Id": client_id, "Authorization": "Bearer " + access_token}
 
     response = requests.get(url, headers=headers)
@@ -46,29 +45,30 @@ def get_product_pricing(stock_code):
     if response.status_code == 200:
         response_json = response.json()
         return response_json
-    # elif response.status_code == 404:
-    #     print("could not find product!")
-    #     return None
     else:
-        print(f"Error retrieving product price\n Status Code: {response.status_code} Response Text:{response.text}")
+        print(f"Error retrieving product prices\n Status Code: {response.status_code} Response Text:{response.text}")
         return None
-    
 
-def calculate_product_price(stock_code,quantity):
-    url = "https://api.digikey.com/products/v4/search/" + stock_code + "/digireelpricing?requestedQuantity=" + quantity
-    headers = {"X-DIGIKEY-Client-Id": client_id, "Authorization": "Bearer " + access_token}
 
-    response = requests.get(url, headers=headers)
+# product_details needs to be the response json of get_product_pricing
+def get_lowest_product_price(product_details, quantity):
+    quantity = int(quantity)
+    lowest_price_details = None
 
-    if response.status_code == 200:
-        response_json = response.json()
-        return response_json
-    # elif response.status_code == 404:
-    #     print("could not find product!")
-    #     return None
+    if not "ProductPricings" in product_details:
+        print("Invalid parameter for get_lowest_product_price")
+        return None
     else:
-        print(f"Error retrieving product price\n Status Code: {response.status_code} Response Text:{response.text}")
-        return None
+        for p_variations in product_details["ProductPricings"][0]["ProductVariations"]:
+            for break_price in p_variations["StandardPricing"]:
+  
+                if not lowest_price_details: # if no lowest price defined, declare it so it can be compared with other break prices
+                    lowest_price_details = break_price
+                elif quantity >= break_price["BreakQuantity"] and break_price["UnitPrice"] < lowest_price_details["UnitPrice"]: #check if quantity is bigger than the break price quantity and that its cheaper
+                    lowest_price_details = break_price
+
+        return lowest_price_details
+
 
 # INDEX KEYS  #
 
@@ -82,35 +82,58 @@ def calculate_product_price(stock_code,quantity):
 # 7 = PCB Package
 # 8 = Manufacturer
 
+def add_csv_entry(stock_code, quantity, break_quantity, unit_price, total_price):
+    csventry = {"Stock Code": stock_code, "Requested Quantity": quantity, "Batch Size": break_quantity, "Unit Price": unit_price, "Total Price": total_price}
+    csvdict.append(csventry)
+
+def create_output_csv(headers, csvdict):
+    with open("BOM Results.csv", "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=headers)
+        writer.writeheader()
+        writer.writerows(csvdict)
+
 def init():
 
-    with open("Bill Of Materials PowerPortMax-v5.csv", newline="") as csvfile:
+    filename = sys.argv[1]
+    requested_quantity = sys.argv[2]
+
+    with open(filename, newline="") as csvfile:
 
         bomreader = csv.reader(csvfile)
         next(bomreader, None) # Skips header
 
         for row in bomreader:
-            # print(row)
-            # try:
 
-            # print((row[4]))
-            response = get_product_pricing(row[4])
+            stock_code = row[4]
+            print(stock_code)
+            product_details = get_product_pricing(stock_code)
+            print(product_details)
+            
 
-            if type(res) != None:
-                res
-            else:
-                print("None found!")
+            if product_details == None:
+                add_csv_entry(stock_code, "", "", "", "")
+                print(f"No product details found for: {stock_code}")
+                continue 
+            if product_details["ProductsCount"] == 0:
+                add_csv_entry(stock_code, "", "", "", "")
+                print(f"No product details found for: {stock_code}")
+                continue 
+            
+            print(product_details)
+            lowest_price_details = get_lowest_product_price(product_details, requested_quantity)
+            unit_price = lowest_price_details["UnitPrice"]
+            total_price = float(unit_price) * float(requested_quantity)
+            
+            print(unit_price)
+
+            add_csv_entry(stock_code, requested_quantity, lowest_price_details['BreakQuantity'], unit_price, total_price)
+        
+        create_output_csv(["Stock Code", "Requested Quantity", "Batch Size", "Unit Price", "Total Price"], csvdict)
 
 
 access_token = get_access_token(client_id, client_secret)
-# init()
+init()
 
 
-# print(get_product_pricing("RC0402FR-07953RL"))
-# print(get_product_pricing("CSRF1206FT10L0"))
-# print(get_product_pricing("74HC4067PW-Q100J"))
-
-print(calculate_product_price("RC0402FR-07953RL","50"))
-# print(get_product_pricing("nf"))
 
     
