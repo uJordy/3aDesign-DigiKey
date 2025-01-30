@@ -12,6 +12,7 @@ import sys
 import requests
 from dotenv import load_dotenv
 import os
+import math
 import json
 
 load_dotenv()
@@ -132,14 +133,14 @@ def init():
             lowest_price_details = get_lowest_product_price(product_details, requested_quantity)
 
             unit_price = lowest_price_details["UnitPrice"]
-            total_price = float(unit_price) * float(requested_quantity)
+            total_price = round(float(unit_price) * float(requested_quantity), 2)
             
 
 
             add_csv_entry(stock_code, requested_quantity, lowest_price_details['BreakQuantity'], unit_price, total_price)
         
         create_output_csv(["Stock Code", "Requested Quantity", "Batch Size", "Unit Price", "Total Price"], csvdict)
-        print(f"Finished. See CSV file {output_filename} in local directory")
+        print(f"Finished. See CSV file '{output_filename}' in local directory")
 
 
 access_token = get_access_token(client_id, client_secret)
