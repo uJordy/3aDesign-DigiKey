@@ -111,12 +111,13 @@ def init():
         bomreader = csv.reader(csvfile)
         next(bomreader, None) # Skips header
 
-        print("Starting loop")
+        print("Starting loop..")
         for row in bomreader:
 
             stock_code = row[4]
             product_details = get_product_pricing(stock_code)
-            
+            print(stock_code)
+
             # Sanity Checks
             if product_details == None:
                 add_csv_entry(stock_code, "", "", "", "")
